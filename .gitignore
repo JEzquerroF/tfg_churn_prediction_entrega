@@ -1,0 +1,60 @@
+# ============================================================
+# .gitignore — Repo público de entrega TFG churn + gustos
+# Política: este repo solo contiene los artefactos curados de la entrega.
+# Los parquets de datos (incluso los curados) NO se versionan por
+# confidencialidad: contienen datos de jugadores agregados.
+# ============================================================
+
+# ---------- Datos de jugadores (NO públicos) ----------
+*.parquet
+data/data_raw/
+
+# ---------- Entorno Python ----------
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ---------- IDEs ----------
+.vscode/
+.idea/
+*.swp
+
+# ---------- Sistema ----------
+.DS_Store
+Thumbs.db
+
+# ---------- Logs y temporales ----------
+*.log
+*.tmp
+*.cache
+*.bak
+*.backup_*
+
+# CatBoost training info (regenerable)
+catboost_info/
+
+# ---------- Outputs intermedios regenerables ----------
+informes/
+*/informes/
+reports/_intermediate/
+
+# Outputs intermedios del perfilado de gustos
+data/data_qc_gustos/player_taste_profile.parquet
+data/data_qc_gustos/countermeasure_assignments.parquet
+data/data_qc_gustos/_tercile_thresholds.json
+
+# ============================================================
+# Lo que SÍ se versiona (no ignorado):
+# - Modelos: *.joblib, *.cbm, *.pkl
+# - Esquemas y metadata: *.json, *.yaml
+# - Figuras de la memoria: *.png
+# - Notebooks: *.ipynb
+# - Scripts y código: *.py
+# - Documentación: *.md, README.md
+# ============================================================

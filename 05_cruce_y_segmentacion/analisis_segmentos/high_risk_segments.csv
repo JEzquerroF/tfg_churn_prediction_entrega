@@ -1,0 +1,6 @@
+segment_id,archetype_name,has_tier2,description,n_total,n_high_risk_14d,pct_high_risk_14d,real_churn_rate_14d,real_churn_in_high_risk_14d,pred_mean_14d,priority_rank
+N1_4_T2_0,Casual Dormido,0,Casual Dormido SIN actividad reciente,10156,4394,0.43265064986215046,0.6191413942497046,0.9494765589440146,0.5957158405041812,1
+N1_1_T2_0,Jugador Establecido Activo,0,Jugador Establecido Activo SIN actividad reciente,2793,710,0.25420694593626925,0.45005370569280345,0.9450704225352112,0.43063598515088314,2
+N1_2_T2_0,Hardcore End-Game,0,Hardcore End-Game SIN actividad reciente,1772,248,0.1399548532731377,0.34650112866817157,0.9314516129032258,0.29221678974034015,3
+N1_5_T2_0,Veterano Inversor,0,Veterano Inversor SIN actividad reciente,2790,242,0.08673835125448029,0.27598566308243727,0.9752066115702479,0.22162895757675166,4
+N1_3_T2_0,Veterano Especializado,0,Veterano Especializado SIN actividad reciente,1977,176,0.08902377339403136,0.2832574607991907,0.9375,0.24058448360348883,5

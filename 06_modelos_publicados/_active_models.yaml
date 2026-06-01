@@ -1,0 +1,45 @@
+# Modelos activos del TFG — publicados para consumo del repo de despliegue
+# Última actualización: 2026-05-20
+
+churn:
+  version: "v1_rf_L22_2026-05-19"
+  path: "churn/v1_rf_L22_2026-05-19/"
+  models:
+    - file: "modelos/rf_L22_v1_ch7d.pkl"
+      target: "churn_7d"
+      auc_test: 0.9254
+    - file: "modelos/rf_L22_v1_ch14d.pkl"
+      target: "churn_14d"
+      auc_test: 0.9057
+    - file: "modelos/rf_L22_v1_ch30d.pkl"
+      target: "churn_30d"
+      auc_test: 0.8543
+  sample_config:
+    cutoff_days: 90
+    spike_days: 7
+    min_logins: 2
+    cleanup: "v1_conservative"
+  n_users_train: 33598
+  features_count: 62
+  oof_predictions: "oof_predictions_L22.parquet"
+
+gustos:
+  version: "v1_kmeans_hdbscan_2026-05-12"
+  path: "gustos/v1_kmeans_hdbscan_2026-05-12/"
+  models:
+    nivel1:
+      file: "nivel1_kmeans_k6.joblib"
+      algorithm: "KMeans"
+      n_clusters: 6
+      cleanup: "v3_aggressive"
+      preprocessor: "preprocessor_tier1.joblib"
+    nivel2:
+      file: "nivel2_hdbscan_min100.joblib"
+      algorithm: "HDBSCAN"
+      min_cluster_size: 100
+      preprocessor: "preprocessor_tier2.joblib"
+  sample_config:
+    window_days: 180
+    n_users: 114412
+  archetype_assignments: "two_stage_assignments.parquet"
+  sample_file: "sample_user_ids_gustos.parquet"

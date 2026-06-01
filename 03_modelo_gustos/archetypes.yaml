@@ -1,0 +1,334 @@
+# Catálogo canónico de arquetipos, ejes de gusto y contramedidas.
+#
+# Este YAML es el source-of-truth de diseño para el sistema de personalización
+# del Bloque 2 (gustos). Define:
+#   - los 6 arquetipos del Nivel 1 (KMeans K=6 sobre Tier 1)
+#   - los 7 ejes de perfilado de gustos con sus umbrales operacionales
+#   - el catálogo de 12 contramedidas con id estable, mecánica y disparador
+#   - el orden de prioridad para resolver overlaps
+#
+# Cualquier cambio en este YAML debe regenerar:
+#   data/data_qc_gustos/player_taste_profile.parquet
+#   data/data_qc_gustos/countermeasure_assignments.parquet
+# vía: python scripts/gustos/perfilado_gustos.py
+#
+# Versión: v1 (2026-05-28)
+# Sample base: N=114.412 (master_table_gustos_v3_aggressive.parquet)
+
+meta:
+  version: "v1.1"
+  fecha_diseño: "2026-05-28"
+  changelog:
+    v1.1: >
+      Subido CM12 (reto_guiado_clase) por encima de los ejes de gusto: el
+      onboarding del Recién Llegado prima sobre rasgos genéricos (enhance,
+      colección, build). Añadido fallback final a CM04 (skin_clase) usando
+      la clase_favorita para los perfiles "activos sin distintivo" en
+      arquetipos no cubiertos. Cobertura: 100 %.
+    v1: "Catálogo inicial de 12 contramedidas con 0,69 % sin asignar (CM00)."
+  sample_total: 114412
+  sample_tier2: 21599
+  master_source: "data/data_qc_gustos/master_table_gustos_v3_aggressive.parquet"
+  assignments_source: "data/data_qc_gustos/two_stage_assignments.parquet"
+  nota_nivel2: >
+    El Nivel 2 (HDBSCAN min_cluster_size=100) detectó 5 sub-clusters pero solo
+    1 supera los 300 jugadores (sub_4 con 9.874, mainstream sin firma propia).
+    Los otros 4 son micro-clusters (<300). El sistema de gustos definido aquí
+    REEMPLAZA al Nivel 2 como capa de personalización. El HDBSCAN se conserva
+    documentado como no operacional.
+
+# =========================================================================
+# 6 arquetipos del Nivel 1 (KMeans K=6 sobre 78 features Tier 1)
+# =========================================================================
+arquetipos_nivel1:
+  - id: 0
+    label: "Recién Llegado Explorador"
+    n_sample: 7492
+  - id: 1
+    label: "Jugador Establecido Activo"
+    n_sample: 20931
+  - id: 2
+    label: "Hardcore End-Game"
+    n_sample: 5989
+  - id: 3
+    label: "Veterano Especializado"
+    n_sample: 5291
+  - id: 4
+    label: "Casual Dormido"
+    n_sample: 67308
+  - id: 5
+    label: "Veterano Inversor"
+    n_sample: 7401
+
+# =========================================================================
+# 7 ejes de gusto
+# =========================================================================
+ejes_gusto:
+
+  clase_favorita:
+    fuente: "char_class_main (categórica)"
+    mapping:
+      0: "Caballero"
+      1: "Asesino"
+      2: "Campeón"
+      3: "Caballero"  # solo 1 jugador en el sample con código 3 (centinela)
+    nulo_a: "Caballero"
+    distribucion_sample:
+      Asesino: 45461
+      Caballero: 43040
+      Campeón: 25911
+
+  estilo_build:
+    fuente: "items_attack_defense_ratio (numérica)"
+    metodo: "terciles globales sobre el sample"
+    umbrales:
+      t33: 1.0370   # límite inferior del tercil medio (tanque ≤ t33)
+      t67: 1.1704   # límite inferior del tercil alto (agresivo ≥ t67)
+    categorias:
+      tanque: "items_attack_defense_ratio <= t33"
+      equilibrado: "t33 < items_attack_defense_ratio < t67"
+      agresivo: "items_attack_defense_ratio >= t67"
+    distribucion_sample:
+      agresivo: 38138
+      tanque: 38138
+      equilibrado: 38136
+
+  monetizacion:
+    fuente: "iap_trial_only, iap_is_payer, reward_has_ad"
+    prelacion:
+      - condicion: "iap_trial_only == 1"
+        valor: "trial_no_convertido"
+      - condicion: "iap_is_payer == 1"
+        valor: "pagador"
+      - condicion: "reward_has_ad == 1"
+        valor: "no_pagador_ads"
+      - condicion: "default"
+        valor: "no_pagador"
+    nota_overlap: >
+      Todos los iap_trial_only=1 (1.156 jugadores) tienen también iap_is_payer=1.
+      La prelación "trial primero" los separa explícitamente del bloque pagador
+      para poder dirigirles la contramedida CM03 (reconversion_trial).
+    distribucion_sample:
+      no_pagador: 96245
+      no_pagador_ads: 15027
+      pagador: 1984
+      trial_no_convertido: 1156
+
+  perfil_enhance:
+    fuente: "items_max_enhance_level, pct_items_high_enhance"
+    metodo: "mediana del sample"
+    regla:
+      inversor: "items_max_enhance_level > 2 OR pct_items_high_enhance > 0"
+      no_inversor: "default"
+    racional:
+      items_max_enhance_level_mediana: 2
+      pct_items_high_enhance_mediana: 0
+    distribucion_sample:
+      no_inversor: 61812
+      inversor: 52600
+
+  perfil_coleccion:
+    fuente: "items_redundancy_ratio, coll_total_items"
+    umbrales:
+      coll_total_items_p75: 42.0
+    regla:
+      coleccionista: "items_redundancy_ratio > 1.5 OR coll_total_items > p75"
+      funcional: "default"
+    distribucion_sample:
+      funcional: 78343
+      coleccionista: 36069
+
+  pvp_perfil:
+    fuente: "fights_pct_pvp, fights_pct_won"
+    requiere_tier2: true
+    regla:
+      pvp_frustrado: "fights_pct_pvp > 0.3 AND fights_pct_won < 0.3"
+      pve_focus: "default (en Tier 2)"
+      null: "has_tier2 == 0"
+    nota: >
+      Eje binario simplificado: pvp_en_racha (N=368) se ha fundido en pve_focus
+      por insuficiencia de volumen para una contramedida dedicada.
+    distribucion_sample:
+      null: 92813
+      pve_focus: 20093
+      pvp_frustrado: 1506
+
+  perfil_oro:
+    fuente: "currency_pct_inflow, currency_pct_outflow"
+    requiere_tier2: true
+    prelacion:
+      - condicion: "currency_pct_inflow > 0.85"
+        valor: "acumulador"
+      - condicion: "currency_pct_outflow > 0.25"
+        valor: "gastador"
+      - condicion: "default (Tier 2)"
+        valor: "neutro"
+      - condicion: "has_tier2 == 0"
+        valor: "null"
+    distribucion_sample:
+      null: 92813
+      acumulador: 11152
+      neutro: 7593
+      gastador: 2854
+
+# =========================================================================
+# 12 contramedidas (catálogo estable con id numérico)
+# =========================================================================
+contramedidas:
+
+  - id: CM01
+    label: "oferta_premium_clase"
+    prioridad: 2
+    mecanica: "Oferta premium con bundle de clase principal del jugador"
+    disparador: "arquetipo_n1 == 'Hardcore End-Game' AND monetizacion == 'pagador'"
+    racional: >
+      Hardcore End-Game tiene 22,5 % de pagadores (vs 2-5 % del resto).
+      Es el segmento de mayor LTV; merece oferta especializada por clase.
+
+  - id: CM02
+    label: "oferta_premium_dirigida"
+    prioridad: 3
+    mecanica: "Oferta premium genérica adaptada al arquetipo"
+    disparador: "monetizacion == 'pagador' AND arquetipo_n1 != 'Hardcore End-Game'"
+    racional: "Resto de pagadores (no Hardcore) — oferta menos agresiva."
+
+  - id: CM03
+    label: "reconversion_trial"
+    prioridad: 1
+    mecanica: "Bundle de reconversión + descuento single-tap antes del fin del trial"
+    disparador: "monetizacion == 'trial_no_convertido'"
+    racional: >
+      Los 1.156 trial_only son la intención de pago más alta no convertida.
+      Máxima prioridad: ventana temporal corta.
+
+  - id: CM04
+    label: "skin_clase"
+    prioridad: 7
+    mecanica: "Skin estética gratis para la clase principal"
+    disparador: >
+      arquetipo_n1 in {'Veterano Inversor', 'Veterano Especializado'}
+      AND monetizacion != 'pagador'
+    disparador_fallback: >
+      Cualquier jugador sin match en las 12 reglas anteriores recibe CM04
+      usando su clase_favorita. Garantiza cobertura 100 %.
+    racional: >
+      Veteranos no pagadores: nostalgia y vinculación afectiva con la clase.
+      Como fallback: una skin estética es la oferta más "agnóstica" posible —
+      no requiere arquetipo activo ni Tier 2 ni gusto declarado.
+
+  - id: CM05
+    label: "evento_enhance"
+    prioridad: 9
+    mecanica: "Evento temporal con drop boost o reducción de coste de enhance"
+    disparador: "perfil_enhance == 'inversor'"
+    racional: "El 46 % del sample muestra propensión a invertir en mejora."
+
+  - id: CM06
+    label: "reto_coleccion"
+    prioridad: 8
+    mecanica: "Reto temporal de completar set + recompensa única de inventario"
+    disparador: >
+      perfil_coleccion == 'coleccionista'
+      AND arquetipo_n1 in {'Jugador Establecido Activo',
+                           'Veterano Especializado', 'Veterano Inversor'}
+    racional: "Coleccionistas con perfil arquetípico que ya juega activamente."
+
+  - id: CM07
+    label: "drop_build"
+    prioridad: 10
+    mecanica: "Drop boost de ítems específicos del estilo de build (crítico / defensa)"
+    disparador: >
+      estilo_build in {'agresivo', 'tanque'}
+      AND arquetipo_n1 in {'Jugador Establecido Activo', 'Hardcore End-Game'}
+    racional: "Builds definidas en arquetipos activos: refuerzo de identidad."
+
+  - id: CM08
+    label: "recompensa_ad"
+    prioridad: 11
+    mecanica: "Aumento temporal del % de moneda por ver ad"
+    disparador: "monetizacion == 'no_pagador_ads'"
+    racional: "Tolerancia a ads confirmada; coste casi cero."
+
+  - id: CM09
+    label: "regalo_moneda"
+    prioridad: 12
+    mecanica: "Regalo de moneda secundaria (gems) en login para reactivar"
+    disparador: "arquetipo_n1 == 'Casual Dormido' AND monetizacion == 'no_pagador'"
+    racional: >
+      Segmento más grande (60.577 jugadores). Riesgo de churn alto, valor
+      bajo individual, contramedida barata pero masiva.
+
+  - id: CM10
+    label: "oferta_conversion_oro"
+    prioridad: 4
+    mecanica: "Bundle limitado para convertir oro acumulado en gems o cosmético"
+    disparador: "has_tier2 == 1 AND perfil_oro == 'acumulador'"
+    racional: >
+      Acumuladores con monedas Tier 2 disponibles: friction-point conocido,
+      conversión a engagement vía oferta de gasto opcional.
+
+  - id: CM11
+    label: "ajuste_pvp"
+    prioridad: 5
+    mecanica: "Aplicar matchmaking forzado a categoría inferior + bonus motivacional"
+    disparador: "has_tier2 == 1 AND pvp_perfil == 'pvp_frustrado'"
+    racional: >
+      1.506 jugadores con PvP activo (>30 %) y baja tasa de victoria (<30 %).
+      Riesgo de abandono por frustración.
+
+  - id: CM12
+    label: "reto_guiado_clase"
+    prioridad: 6
+    mecanica: "Misión guiada de 7 días con hitos adaptados a la clase principal"
+    disparador: "arquetipo_n1 == 'Recién Llegado Explorador'"
+    racional: >
+      Onboarding extendido — los nuevos sin distintivo previo. En v1.1 esta
+      contramedida sube por encima de los ejes de gusto (CM04, CM05, CM06,
+      CM07): el onboarding del jugador nuevo debe primar sobre rasgos
+      genéricos aunque el Recién Llegado también sea inversor en enhance
+      o coleccionista.
+
+# =========================================================================
+# Orden de prioridad (resolución de overlap → primer match gana)
+# =========================================================================
+prioridad:
+  filosofia: >
+    De más a menos específico:
+      1. Monetización aguda (trial, pagador)         [CM03, CM01, CM02]
+      2. Refinamiento Tier 2                         [CM10, CM11]
+      3. Onboarding del nuevo                        [CM12]
+      4. Gusto específico (skin, coleccion, enhance, build) [CM04, CM06, CM05, CM07]
+      5. Genérica por arquetipo                      [CM08, CM09]
+      6. Fallback (CM04 con clase_favorita)          → cobertura 100 %
+  orden:
+    - CM03   # reconversion_trial
+    - CM01   # oferta_premium_clase
+    - CM02   # oferta_premium_dirigida
+    - CM10   # oferta_conversion_oro
+    - CM11   # ajuste_pvp
+    - CM12   # reto_guiado_clase           (subido en v1.1)
+    - CM04   # skin_clase
+    - CM06   # reto_coleccion
+    - CM05   # evento_enhance              (bajado en v1.1)
+    - CM07   # drop_build
+    - CM08   # recompensa_ad
+    - CM09   # regalo_moneda
+  fallback_final:
+    contramedida: CM04
+    politica: >
+      Tras evaluar las 12 reglas en orden, los jugadores sin match (perfil
+      "activo sin distintivo" en arquetipos Establecido Activo / Hardcore)
+      reciben CM04 (skin_clase) usando su clase_favorita. La skin es la
+      oferta más agnóstica del catálogo (no requiere arquetipo activo, Tier
+      2 ni gusto declarado).
+    n_actual: 792
+    pct: 0.69
+
+# =========================================================================
+# Cobertura
+# =========================================================================
+cobertura:
+  total: 114412
+  asignados: 114412
+  sin_asignar: 0
+  pct: 100.0
